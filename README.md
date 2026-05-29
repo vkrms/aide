@@ -14,6 +14,8 @@ A lightweight serverless bot deployed on Vercel that pings your Telegram daily w
    - Run `npm install -g vercel` if you haven't installed Vercel CLI.
    - Run `npm run vercel:dev` in the root folder to start your local Vercel dev server on port `9120`.
    - Trigger the check-in endpoint manually in your browser or with cURL: `http://localhost:9120/api/cron-checkin`
+   - To sync local env vars to Vercel for one target environment, run `./scripts/push-vercel-env.sh production .env`.
+   - To trigger the deployed cron endpoint with your local `CRON_SECRET`, run `./scripts/trigger-vercel-cron.sh <deployment-url> .env`. The script uses `vercel curl`, so it works against protected deployments too.
 
 ## Deploy to Vercel
 

@@ -1,6 +1,8 @@
 import { URL } from 'url';
 
 export default async function handler(request, response) {
+  const forcedTelegramMessage = 'I want to help you organize your stuff a little bit';
+
   // 1. Security Check: Protect your endpoint from being manually triggered by strangers
   // Vercel automatically populates and verifies CRON_SECRET headers for system-fired cron jobs
   const authHeader = request.headers.authorization || request.headers.get?.('authorization');
@@ -24,7 +26,7 @@ export default async function handler(request, response) {
     });
   }
 
-  if (!initialTelegramMessage && !geminiApiKey) {
+  if (!forcedTelegramMessage && !initialTelegramMessage && !geminiApiKey) {
     console.error('Missing Gemini API key and no initial Telegram message override was provided.');
     return response.status(500).json({
       success: false,
@@ -33,8 +35,8 @@ export default async function handler(request, response) {
   }
 
   try {
-    let botMessage = initialTelegramMessage;
-    let messageSource = 'initial_message';
+    let botMessage = forcedTelegramMessage || initialTelegramMessage;
+    let messageSource = forcedTelegramMessage ? 'hardcoded' : 'initial_message';
 
     if (!botMessage) {
       // 3. Craft an ADHD-friendly prompt for Gemini
@@ -69,6 +71,8 @@ export default async function handler(request, response) {
       botMessage = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ||
         "Hey there! Ready to conquer one small thing today? What's your tiny focus?";
       messageSource = 'gemini';
+    } else if (forcedTelegramMessage) {
+      console.log('Sending hardcoded Telegram message...');
     } else {
       console.log('Sending configured initial Telegram message...');
     }
@@ -89,6 +93,11 @@ export default async function handler(request, response) {
 
     if (!telegramResponse.ok) {
       const errorText = await telegramResponse.text();
+      if (telegramResponse.status === 400 && errorText.includes('chat not found')) {
+        throw new Error(
+          'Telegram chat not found. Update TELEGRAM_CHAT_ID to a chat the bot can access, and make sure you have started a direct chat with the bot or added it to the target group.'
+        );
+      }
       throw new Error(`Telegram API Error: ${telegramResponse.status} - ${errorText}`);
     }
 
