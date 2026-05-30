@@ -2,3 +2,6 @@
 *.env
 .vercel
 spice-it-up.md
+node_modules/
+dist/
+webhook.sh
