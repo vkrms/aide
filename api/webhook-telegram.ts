@@ -45,6 +45,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
     try {
         const bot = buildBot();
+        await bot.init();
         await bot.handleUpdate(request.body);
     } catch (error) {
         console.error('Failed to handle Telegram update:', error);
