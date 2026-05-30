@@ -15,7 +15,10 @@
   "dependencies": {
     "@google/genai": "^2.7.0",
     "@neondatabase/serverless": "^1.0.1",
-    "drizzle-orm": "^0.44.2"
+    "dotenv": "^8.2.0",
+    "drizzle-orm": "^0.44.2",
+    "grammy": "^1.43.0",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

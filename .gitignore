@@ -5,3 +5,4 @@ spice-it-up.md
 node_modules/
 dist/
 webhook.sh
+config.bat

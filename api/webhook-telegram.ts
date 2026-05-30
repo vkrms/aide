@@ -1,55 +1,54 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 import { replyToMessage } from '../lib/gemini.js';
-import { sendTelegramMessage, type TelegramUpdate } from '../lib/telegram.js';
+import { createBot } from '../lib/telegram.js';
+
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+
+function buildBot() {
+    if (!telegramToken) throw new Error('Missing TELEGRAM_BOT_TOKEN');
+
+    const bot = createBot(telegramToken);
+
+    bot.on('message:text', async (ctx) => {
+        const { text, message_id, from, chat } = ctx.message;
+
+        console.log(`[webhook] message from ${from?.username ?? from?.first_name} (chat ${chat.id}): ${text}`);
+
+        if (!geminiApiKey) {
+            console.error('Missing GEMINI_API_KEY');
+            return;
+        }
+
+        const replyText = await replyToMessage(geminiApiKey, text);
+        await ctx.reply(replyText, { reply_to_message_id: message_id });
+    });
+
+    return bot;
+}
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
-    // Telegram sends POST requests only
     if (request.method !== 'POST') {
         return response.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Validate the secret token Telegram sends in the header
     const secretToken = request.headers['x-telegram-bot-api-secret-token'];
     if (secretToken !== process.env.TELEGRAM_WEBHOOK_SECRET) {
         return response.status(401).json({ error: 'Unauthorized' });
     }
 
-    const geminiApiKey = process.env.GEMINI_API_KEY;
-    const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
-
-    if (!geminiApiKey || !telegramToken) {
-        console.error('Missing GEMINI_API_KEY or TELEGRAM_BOT_TOKEN');
-        // Always return 200 to Telegram so it doesn't retry
+    if (!telegramToken) {
+        console.error('Missing TELEGRAM_BOT_TOKEN');
         return response.status(200).json({ ok: true });
     }
-
-    const update = request.body as TelegramUpdate;
-    const message = update.message;
-
-    // Ignore non-text messages and bot messages
-    if (!message?.text || message.from?.is_bot) {
-        return response.status(200).json({ ok: true });
-    }
-
-    const chatId = String(message.chat.id);
-    const userText = message.text;
-
-    console.log(`[webhook] message from ${message.from?.username ?? message.from?.first_name} (chat ${chatId}): ${userText}`);
 
     try {
-        const replyText = await replyToMessage(geminiApiKey, userText);
-
-        await sendTelegramMessage({
-            token: telegramToken,
-            chatId,
-            text: replyText,
-            replyToMessageId: message.message_id,
-        });
+        const bot = buildBot();
+        await bot.handleUpdate(request.body);
     } catch (error) {
-        console.error('Failed to handle Telegram message:', error);
+        console.error('Failed to handle Telegram update:', error);
     }
 
-    // Always acknowledge to prevent Telegram from resending
     return response.status(200).json({ ok: true });
 }
