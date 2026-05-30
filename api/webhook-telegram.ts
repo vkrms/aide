@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+import { appendChatHistory, getChatHistory } from '../db/chat-sessions.js';
 import { replyToMessage } from '../lib/gemini.js';
 import { createBot } from '../lib/telegram.js';
 
@@ -13,16 +14,20 @@ function buildBot() {
 
     bot.on('message:text', async (ctx) => {
         const { text, message_id, from, chat } = ctx.message;
+        const chatId = String(chat.id);
 
-        console.log(`[webhook] message from ${from?.username ?? from?.first_name} (chat ${chat.id}): ${text}`);
+        console.log(`[webhook] message from ${from?.username ?? from?.first_name} (chat ${chatId}): ${text}`);
 
         if (!geminiApiKey) {
             console.error('Missing GEMINI_API_KEY');
             return;
         }
 
-        const replyText = await replyToMessage(geminiApiKey, text);
+        const history = await getChatHistory(chatId);
+        const { text: replyText, updatedHistory } = await replyToMessage(geminiApiKey, text, history);
+
         await ctx.reply(replyText, { reply_to_message_id: message_id });
+        await appendChatHistory(chatId, updatedHistory.slice(history.length));
     });
 
     return bot;

@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 
-const MODEL = 'gemini-2.5-flash-preview-05-20';
+import type { ChatMessage } from '../db/schema.js';
+
+const MODEL = 'gemini-3.1-flash-lite';
 
 const SYSTEM_INSTRUCTION =
     'You are an empathetic, concise, and engaging ADHD-friendly Accountability Partner. ' +
@@ -29,14 +31,27 @@ export async function generateCheckinMessage(apiKey: string): Promise<string> {
     return response.text ?? CHECKIN_FALLBACK;
 }
 
-export async function replyToMessage(apiKey: string, userMessage: string): Promise<string> {
+export async function replyToMessage(
+    apiKey: string,
+    userMessage: string,
+    history: ChatMessage[] = [],
+): Promise<{ text: string; updatedHistory: ChatMessage[] }> {
     const ai = createClient(apiKey);
 
-    const response = await ai.models.generateContent({
+    const chat = ai.chats.create({
         model: MODEL,
-        contents: userMessage,
+        history,
         config: { systemInstruction: SYSTEM_INSTRUCTION },
     });
 
-    return response.text ?? REPLY_FALLBACK;
+    const response = await chat.sendMessage({ message: userMessage });
+    const text = response.text ?? REPLY_FALLBACK;
+
+    const updatedHistory: ChatMessage[] = [
+        ...history,
+        { role: 'user', parts: [{ text: userMessage }] },
+        { role: 'model', parts: [{ text }] },
+    ];
+
+    return { text, updatedHistory };
 }
