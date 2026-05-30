@@ -35,6 +35,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
     const chatId = String(message.chat.id);
     const userText = message.text;
 
+    console.log(`[webhook] message from ${message.from?.username ?? message.from?.first_name} (chat ${chatId}): ${userText}`);
+
     try {
         const replyText = await replyToMessage(geminiApiKey, userText);
 
