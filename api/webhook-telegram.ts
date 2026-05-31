@@ -1,7 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 import { appendChatHistory, getChatHistory } from '../db/chat-sessions.js';
+import { createReminder } from '../db/reminders.js';
 import { replyToMessage } from '../lib/gemini.js';
+import { scheduleReminder } from '../lib/qstash.js';
 import { createBot } from '../lib/telegram.js';
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -24,10 +26,27 @@ function buildBot() {
         }
 
         const history = await getChatHistory(chatId);
-        const { text: replyText, updatedHistory } = await replyToMessage(geminiApiKey, text, history);
+        const result = await replyToMessage(geminiApiKey, text, history);
 
-        await ctx.reply(replyText, { reply_to_message_id: message_id });
-        await appendChatHistory(chatId, updatedHistory.slice(history.length));
+        if (result.type === 'scheduleReminder') {
+            const { message, scheduledAt } = result.args;
+            const scheduledDate = new Date(scheduledAt);
+            const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://cool-aide.vercel.app';
+
+            const reminderId = await createReminder({ telegramChatId: chatId, message, scheduledAt: scheduledDate });
+
+            if (reminderId) {
+                const qstashMessageId = await scheduleReminder({ reminderId, scheduledAt: scheduledDate, baseUrl });
+                console.log(`[webhook] reminder scheduled: ${reminderId}, qstash: ${qstashMessageId}`);
+                await ctx.reply(`Got it! I'll remind you at ${scheduledDate.toUTCString()} 🎯`, { reply_to_message_id: message_id });
+            } else {
+                await ctx.reply("Hmm, I couldn't save that reminder. Try again?", { reply_to_message_id: message_id });
+            }
+        } else {
+            await ctx.reply(result.text, { reply_to_message_id: message_id });
+        }
+
+        await appendChatHistory(chatId, result.updatedHistory.slice(history.length));
     });
 
     return bot;

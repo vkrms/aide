@@ -20,4 +20,15 @@ export const chatSessions = pgTable('chat_sessions', {
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const reminders = pgTable('reminders', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    telegramChatId: text('telegram_chat_id').notNull(),
+    message: text('message').notNull(),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
+    qstashMessageId: text('qstash_message_id'),
+    status: text('status', { enum: ['pending', 'sent', 'failed'] }).notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type NewDelivery = typeof deliveries.$inferInsert;
+export type NewReminder = typeof reminders.$inferInsert;
