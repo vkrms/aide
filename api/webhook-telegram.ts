@@ -38,7 +38,13 @@ function buildBot() {
             if (reminderId) {
                 const qstashMessageId = await scheduleReminder({ reminderId, scheduledAt: scheduledDate, baseUrl });
                 console.log(`[webhook] reminder scheduled: ${reminderId}, qstash: ${qstashMessageId}`);
-                await ctx.reply(`Got it! I'll remind you at ${scheduledDate.toUTCString()} 🎯`, { reply_to_message_id: message_id });
+                const timezone = process.env.TIMEZONE ?? 'UTC';
+                const formattedTime = new Intl.DateTimeFormat('en-GB', {
+                    timeZone: timezone,
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                }).format(scheduledDate);
+                await ctx.reply(`Got it! I'll remind you at ${formattedTime} (${timezone}) 🎯`, { reply_to_message_id: message_id });
             } else {
                 await ctx.reply("Hmm, I couldn't save that reminder. Try again?", { reply_to_message_id: message_id });
             }

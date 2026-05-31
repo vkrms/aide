@@ -18,6 +18,9 @@ export async function scheduleReminder({ reminderId, scheduledAt, baseUrl }: Sch
         url: `${baseUrl}/api/send-reminder`,
         delay: delaySeconds,
         body: { reminderId },
+        headers: {
+            'x-vercel-protection-bypass': process.env.VERCEL_BYPASS_TOKEN ?? '',
+        },
     });
 
     return result.messageId;
