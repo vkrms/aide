@@ -58,6 +58,25 @@ function buildBot() {
     return bot;
 }
 
+let botPromise: Promise<ReturnType<typeof buildBot>> | undefined;
+
+async function getBot() {
+    if (!botPromise) {
+        const bot = buildBot();
+        botPromise = (async () => {
+            await bot.init();
+            return bot;
+        })();
+    }
+
+    try {
+        return await botPromise;
+    } catch (error) {
+        botPromise = undefined;
+        throw error;
+    }
+}
+
 export default async function handler(request: VercelRequest, response: VercelResponse) {
     if (request.method !== 'POST') {
         return response.status(405).json({ error: 'Method not allowed' });
@@ -74,8 +93,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
     }
 
     try {
-        const bot = buildBot();
-        await bot.init();
+        const bot = await getBot();
         await bot.handleUpdate(request.body);
     } catch (error) {
         console.error('Failed to handle Telegram update:', error);
