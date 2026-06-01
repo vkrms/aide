@@ -4,14 +4,28 @@ import type { ChatMessage } from '../db/schema.js';
 
 const MODEL = 'gemini-3.1-flash-lite';
 
-const SYSTEM_INSTRUCTION =
-    'You are an empathetic, concise, and engaging ADHD-friendly Accountability Partner. ' +
-    'Your tone is supportive, energetic, completely non-judgmental, and slightly playful. ' +
-    'Never write long essays or overwhelming bulleted lists of 10 tasks. ' +
-    'Keep your daily check-in under 3 sentences. Focus on getting them to identify just ONE single, ' +
-    'tiny, low-friction action they can do right now to move their project forward. ' +
-    `The current UTC time is ${new Date().toISOString()}. When the user asks to set a reminder, ` +
-    'always resolve the time they mention to a UTC ISO 8601 string before calling scheduleReminder.';
+function buildSystemInstruction() {
+    const now = new Date();
+    const timezone = process.env.TIMEZONE ?? 'UTC';
+    const localTime = new Intl.DateTimeFormat('en-GB', {
+        timeZone: timezone,
+        dateStyle: 'full',
+        timeStyle: 'short',
+    }).format(now);
+    return (
+        'You are an empathetic, concise, and engaging ADHD-friendly Accountability Partner. ' +
+        'Your tone is supportive, energetic, completely non-judgmental, and slightly playful. ' +
+        'Never write long essays or overwhelming bulleted lists of 10 tasks. ' +
+        'Keep your daily check-in under 3 sentences. Focus on getting them to identify just ONE single, ' +
+        'tiny, low-friction action they can do right now to move their project forward. ' +
+        `The current UTC time is ${now.toISOString()}. ` +
+        `The user's local time is ${localTime} (${timezone}). ` +
+        'When the user mentions relative times like "tomorrow" or "in 10 minutes", resolve them ' +
+        'relative to the user\'s local time, then convert to UTC ISO 8601 before calling scheduleReminder. ' +
+        'For explicit weekdays like Monday or Wednesday, schedule the next occurrence of that weekday in the user\'s local time unless the user clearly specifies a different week. '
+        + 'Never default an explicit weekday request to today unless today is that weekday and the user clearly asked for today.'
+    );
+}
 
 const CHECKIN_PROMPT = "Generate today's morning check-in message. Keep it short, actionable, and friendly.";
 const CHECKIN_FALLBACK = "Hey there! Ready to conquer one small thing today? What's your tiny focus?";
@@ -54,7 +68,7 @@ export async function generateCheckinMessage(apiKey: string): Promise<string> {
     const response = await ai.models.generateContent({
         model: MODEL,
         contents: CHECKIN_PROMPT,
-        config: { systemInstruction: SYSTEM_INSTRUCTION },
+        config: { systemInstruction: buildSystemInstruction() },
     });
 
     return response.text ?? CHECKIN_FALLBACK;
@@ -74,7 +88,7 @@ export async function replyToMessage(
     const chat = ai.chats.create({
         model: MODEL,
         history,
-        config: { systemInstruction: SYSTEM_INSTRUCTION, tools: TOOLS },
+        config: { systemInstruction: buildSystemInstruction(), tools: TOOLS },
     });
 
     const response = await chat.sendMessage({ message: userMessage });
