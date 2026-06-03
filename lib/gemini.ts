@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, type FunctionCall } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, Type, type FunctionCall } from '@google/genai';
 
 import type { ChatMessage } from '../db/schema.js';
 
@@ -68,7 +68,10 @@ export async function generateCheckinMessage(apiKey: string): Promise<string> {
     const response = await ai.models.generateContent({
         model: MODEL,
         contents: CHECKIN_PROMPT,
-        config: { systemInstruction: buildSystemInstruction() },
+        config: {
+            systemInstruction: buildSystemInstruction(),
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        },
     });
 
     return response.text ?? CHECKIN_FALLBACK;
@@ -88,7 +91,11 @@ export async function replyToMessage(
     const chat = ai.chats.create({
         model: MODEL,
         history,
-        config: { systemInstruction: buildSystemInstruction(), tools: TOOLS },
+        config: {
+            systemInstruction: buildSystemInstruction(),
+            tools: TOOLS,
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        },
     });
 
     const response = await chat.sendMessage({ message: userMessage });
