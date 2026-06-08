@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 
-import { getDb } from './client.js';
-import { projects, reminders, type NewProject } from './schema.js';
+import { getDb } from './client';
+import { projects, reminders, type NewProject } from './schema';
 
 export async function createProject(input: NewProject): Promise<string | null> {
     const db = getDb();

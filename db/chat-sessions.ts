@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
-import { getDb } from './client.js';
-import { chatSessions, type ChatMessage } from './schema.js';
+import { getDb } from './client';
+import { chatSessions, type ChatMessage } from './schema';
 
 const MAX_HISTORY_MESSAGES = 40;
 

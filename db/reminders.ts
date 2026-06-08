@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 
-import { getDb } from './client.js';
-import { reminders, type NewReminder } from './schema.js';
+import { getDb } from './client';
+import { reminders, type NewReminder } from './schema';
 
 export async function createReminder(input: NewReminder): Promise<string | null> {
     const db = getDb();

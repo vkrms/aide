@@ -1,5 +1,5 @@
-import { deliveries } from './schema.js';
-import { getDb } from './client.js';
+import { deliveries } from './schema';
+import { getDb } from './client';
 
 type DeliveryStatus = 'sent' | 'failed';
 
