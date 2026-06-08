@@ -1,6 +1,4 @@
-import { GoogleGenAI, ThinkingLevel, Type, type FunctionCall } from '@google/genai';
-
-import type { ChatMessage } from '../db/schema.js';
+import { GoogleGenAI, ThinkingLevel, type Interactions } from '@google/genai';
 
 const MODEL = 'gemini-3.1-flash-lite';
 
@@ -31,28 +29,25 @@ const CHECKIN_PROMPT = "Generate today's morning check-in message. Keep it short
 const CHECKIN_FALLBACK = "Hey there! Ready to conquer one small thing today? What's your tiny focus?";
 const REPLY_FALLBACK = "I'm here! What tiny step can we tackle together right now?";
 
-const TOOLS = [
+const TOOLS: Interactions.Tool[] = [
     {
-        functionDeclarations: [
-            {
-                name: 'scheduleReminder',
-                description: 'Schedule a reminder message to be sent to the user at a specific time.',
-                parameters: {
-                    type: Type.OBJECT,
-                    properties: {
-                        message: {
-                            type: Type.STRING,
-                            description: 'The reminder message to send to the user.',
-                        },
-                        scheduledAt: {
-                            type: Type.STRING,
-                            description: 'UTC ISO 8601 datetime string for when to send the reminder.',
-                        },
-                    },
-                    required: ['message', 'scheduledAt'],
+        type: 'function',
+        name: 'scheduleReminder',
+        description: 'Schedule a reminder message to be sent to the user at a specific time.',
+        parameters: {
+            type: 'object',
+            properties: {
+                message: {
+                    type: 'string',
+                    description: 'The reminder message to send to the user.',
+                },
+                scheduledAt: {
+                    type: 'string',
+                    description: 'UTC ISO 8601 datetime string for when to send the reminder.',
                 },
             },
-        ],
+            required: ['message', 'scheduledAt'],
+        },
     },
 ];
 
@@ -78,46 +73,39 @@ export async function generateCheckinMessage(apiKey: string): Promise<string> {
 }
 
 export type ReplyResult =
-    | { type: 'text'; text: string; updatedHistory: ChatMessage[] }
-    | { type: 'scheduleReminder'; args: ScheduleReminderArgs; updatedHistory: ChatMessage[] };
+    | { type: 'text'; text: string; interactionId: string }
+    | { type: 'scheduleReminder'; args: ScheduleReminderArgs; interactionId: string };
 
 export async function replyToMessage(
     apiKey: string,
     userMessage: string,
-    history: ChatMessage[] = [],
+    previousInteractionId?: string | null,
 ): Promise<ReplyResult> {
     const ai = createClient(apiKey);
 
-    const chat = ai.chats.create({
+    const interaction = await ai.interactions.create({
         model: MODEL,
-        history,
-        config: {
-            systemInstruction: buildSystemInstruction(),
-            tools: TOOLS,
-            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-        },
+        input: userMessage,
+        system_instruction: buildSystemInstruction(),
+        tools: TOOLS,
+        ...(previousInteractionId ? { previous_interaction_id: previousInteractionId } : {}),
     });
 
-    const response = await chat.sendMessage({ message: userMessage });
+    const functionCallStep = interaction.steps?.find(
+        (s): s is Interactions.FunctionCallStep => s.type === 'function_call',
+    );
 
-    const newHistory: ChatMessage[] = [
-        ...history,
-        { role: 'user', parts: [{ text: userMessage }] },
-    ];
-
-    const functionCall = response.functionCalls?.[0] as FunctionCall | undefined;
-    if (functionCall?.name === 'scheduleReminder') {
+    if (functionCallStep?.name === 'scheduleReminder') {
         return {
             type: 'scheduleReminder',
-            args: functionCall.args as ScheduleReminderArgs,
-            updatedHistory: newHistory,
+            args: functionCallStep.arguments as ScheduleReminderArgs,
+            interactionId: interaction.id,
         };
     }
 
-    const text = response.text ?? REPLY_FALLBACK;
     return {
         type: 'text',
-        text,
-        updatedHistory: [...newHistory, { role: 'model', parts: [{ text }] }],
+        text: interaction.output_text ?? REPLY_FALLBACK,
+        interactionId: interaction.id,
     };
 }
