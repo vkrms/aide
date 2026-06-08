@@ -6,3 +6,5 @@ node_modules/
 dist/
 webhook.sh
 config.bat
+.next
+tsconfig.tsbuildinfo

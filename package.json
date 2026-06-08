@@ -3,14 +3,16 @@
   "version": "1.0.0",
   "description": "An ADHD-friendly AI accountability partner utilizing Vercel Crons and Telegram.",
   "type": "module",
-  "main": "api/cron-checkin.ts",
+  "main": "app/api/cron-checkin/route.ts",
   "scripts": {
-    "start": "npm run vercel:dev",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "vercel:dev": "vercel dev --listen 9120"
+    "vercel:dev": "next dev"
   },
   "dependencies": {
     "@google/genai": "^2.7.0",
@@ -19,11 +21,14 @@
     "dotenv": "^8.2.0",
     "drizzle-orm": "^0.45.2",
     "grammy": "^1.43.0",
-    "node-fetch": "^3.3.2"
+    "next": "^16.2.7",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
-    "@vercel/node": "^5.3.24",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.7",
     "typescript": "^5.9.3",
     "vercel": "^37.0.0"
