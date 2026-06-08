@@ -1,6 +1,6 @@
-import { GoogleGenAI, ThinkingLevel, type Interactions } from '@google/genai';
+import { GoogleGenAI, type Interactions } from '@google/genai';
 
-const MODEL = 'gemini-3.1-flash-lite';
+const MODEL = 'gemini-3.1-flash-lite-preview';
 
 function buildSystemInstruction() {
     const now = new Date();
@@ -60,16 +60,15 @@ function createClient(apiKey: string) {
 export async function generateCheckinMessage(apiKey: string): Promise<string> {
     const ai = createClient(apiKey);
 
-    const response = await ai.models.generateContent({
+    const interaction = await ai.interactions.create({
         model: MODEL,
-        contents: CHECKIN_PROMPT,
-        config: {
-            systemInstruction: buildSystemInstruction(),
-            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
-        },
+        input: CHECKIN_PROMPT,
+        system_instruction: buildSystemInstruction(),
+        generation_config: { thinking_level: 'low' },
+        store: false,
     });
 
-    return response.text ?? CHECKIN_FALLBACK;
+    return interaction.output_text ?? CHECKIN_FALLBACK;
 }
 
 export type ReplyResult =
