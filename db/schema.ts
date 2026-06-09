@@ -54,3 +54,12 @@ export const projectsRelations = relations(projects, ({ many }) => ({
 export type NewDelivery = typeof deliveries.$inferInsert;
 export type NewReminder = typeof reminders.$inferInsert;
 export type NewProject = typeof projects.$inferInsert;
+
+export const memories = pgTable('memories', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    telegramChatId: text('telegram_chat_id').notNull(),
+    content: text('content').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type NewMemory = typeof memories.$inferInsert;

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { appendChatHistory, getLastInteractionId, setLastInteractionId } from '@/db/chat-sessions';
 import { createReminder } from '@/db/reminders';
-import { replyToMessage } from '@/lib/gemini';
+import { createMemory, getMemoriesByChatId, deleteMemory } from '@/lib/data';
+import { replyToMessage, continueWithFunctionResponse } from '@/lib/gemini';
 import { scheduleReminder } from '@/lib/qstash';
 import { createBot } from '@/lib/telegram';
 
@@ -125,12 +126,12 @@ function getNextWeekday(from: ZonedParts, targetWeekday: number, targetTime: { h
     return candidate;
 }
 
-async function handleReminderCommand(chatId: string, text: string): Promise<string> {
+async function handleReminderCommand(chatId: string, text: string): Promise<string | null> {
     const weekday = getRequestedWeekday(text);
     const time = getRequestedTime(text);
 
     if (weekday === null || time === null) {
-        return 'Please specify a day and time, e.g. "remind me Monday 09:00 to review my goals"';
+        return null;
     }
 
     const whatsLeft = text
@@ -184,9 +185,12 @@ function buildBot() {
 
         const isReminder = /\bremind\b/i.test(userMessage);
         if (isReminder) {
-            const reply = await handleReminderCommand(chatId, userMessage);
-            await ctx.reply(reply);
-            return;
+            const parsed = await handleReminderCommand(chatId, userMessage);
+            if (parsed !== null) {
+                await ctx.reply(parsed);
+                return;
+            }
+            // fall through to Gemini for relative/natural-language reminders
         }
 
         const startTime = Date.now();
@@ -197,6 +201,7 @@ function buildBot() {
         const elapsed = Date.now() - startTime;
 
         let reply: string;
+        let finalInteractionId = result.interactionId;
 
         if (result.type === 'scheduleReminder') {
             const { message, scheduledAt } = result.args;
@@ -215,11 +220,32 @@ function buildBot() {
             }
 
             reply = 'Reminder set!';
+        } else if (result.type === 'storeMemory') {
+            await createMemory(chatId, result.args.content);
+            reply = 'Got it, I\'ll remember that!';
+        } else if (result.type === 'deleteMemory') {
+            await deleteMemory(result.args.memoryId);
+            reply = 'Forgotten.';
+        } else if (result.type === 'retrieveMemories') {
+            const memories = await getMemoriesByChatId(chatId, result.args.query);
+            const memoryList = memories
+                .map((m, i) => `${i + 1}. [${m.id}] ${m.content}`)
+                .join('\n');
+
+            const continued = await continueWithFunctionResponse(
+                geminiApiKey,
+                result.interactionId,
+                'retrieveMemories',
+                { memories: memoryList || 'No memories found.' },
+            );
+
+            reply = continued.text;
+            finalInteractionId = continued.interactionId;
         } else {
             reply = result.text;
         }
 
-        await setLastInteractionId(chatId, result.interactionId);
+        await setLastInteractionId(chatId, finalInteractionId);
         await appendChatHistory(chatId, [
             { role: 'user', parts: [{ text: userMessage }] },
             { role: 'model', parts: [{ text: reply }] },
@@ -228,10 +254,10 @@ function buildBot() {
         if (shouldIncludeDebug(chatId)) {
             const callLines: Array<[string, string | number | boolean]> = [
                 ['elapsed_ms', elapsed],
-                ['interaction_id', result.interactionId],
+                ['interaction_id', finalInteractionId],
             ];
-            if (result.type === 'scheduleReminder') {
-                callLines.push(['fn_calls', 'scheduleReminder']);
+            if (result.type !== 'text') {
+                callLines.push(['fn_calls', result.type]);
             }
             await ctx.reply(reply/* + buildDebugBlockquote(callLines)*/);
         } else {
