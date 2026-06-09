@@ -52,13 +52,13 @@ export async function deleteProject(id: string, telegramChatId: string): Promise
     return result.rowCount > 0;
 }
 
-export async function getProjectReminders(projectId: string, telegramChatId: string) {
+export async function getProjectReminders(projectId: string) {
     const db = getDb();
     if (!db) return [];
 
     return db
         .select()
         .from(reminders)
-        .where(and(eq(reminders.projectId, projectId), eq(reminders.telegramChatId, telegramChatId)))
+        .where(eq(reminders.projectId, projectId))
         .orderBy(reminders.scheduledAt);
 }

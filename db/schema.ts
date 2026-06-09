@@ -32,7 +32,6 @@ export const projects = pgTable('projects', {
 
 export const reminders = pgTable('reminders', {
     id: uuid('id').defaultRandom().primaryKey(),
-    telegramChatId: text('telegram_chat_id').notNull(),
     message: text('message').notNull(),
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
     qstashMessageId: text('qstash_message_id'),

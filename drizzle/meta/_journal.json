@@ -22,6 +22,13 @@
       "when": 1749341400000,
       "tag": "0002_interactions_session",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780977901100,
+      "tag": "0003_massive_selene",
+      "breakpoints": true
     }
   ]
 }

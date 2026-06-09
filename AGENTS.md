@@ -15,3 +15,4 @@ discipline:
 - for TypeScript changes, default to `npm run typecheck` as the first validation pass
 - use `npm run vercel:dev` for local Vercel work; do not add or rely on a recursive `dev` script
 - treat Drizzle schema generation and live database operations differently: `db:generate` can run without `DATABASE_URL`, but `db:migrate` and `db:push` require it
+- ring the alarm if theres any `global['!']` in our code

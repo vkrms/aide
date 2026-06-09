@@ -2,11 +2,12 @@ import { Client } from '@upstash/qstash';
 
 type ScheduleReminderOptions = {
     reminderId: string;
+    telegramChatId: string;
     scheduledAt: Date;
     baseUrl: string;
 };
 
-export async function scheduleReminder({ reminderId, scheduledAt, baseUrl }: ScheduleReminderOptions): Promise<string> {
+export async function scheduleReminder({ reminderId, telegramChatId, scheduledAt, baseUrl }: ScheduleReminderOptions): Promise<string> {
     const token = process.env.QSTASH_TOKEN;
     if (!token) throw new Error('Missing QSTASH_TOKEN');
 
@@ -17,7 +18,7 @@ export async function scheduleReminder({ reminderId, scheduledAt, baseUrl }: Sch
     const result = await client.publishJSON({
         url: `${baseUrl}/api/send-reminder`,
         delay: delaySeconds,
-        body: { reminderId },
+        body: { reminderId, telegramChatId },
         headers: {
             'x-vercel-protection-bypass': process.env.VERCEL_BYPASS_TOKEN ?? '',
         },

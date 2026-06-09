@@ -148,7 +148,6 @@ async function handleReminderCommand(chatId: string, text: string): Promise<stri
     const scheduledAt = getNextWeekday(now, weekday, time);
 
     const reminderId = await createReminder({
-        telegramChatId: chatId,
         message: reminderMessage,
         scheduledAt,
     });
@@ -157,7 +156,7 @@ async function handleReminderCommand(chatId: string, text: string): Promise<stri
         const baseUrl = process.env.VERCEL_URL
             ? `https://${process.env.VERCEL_URL}`
             : 'https://cool-aide.vercel.app';
-        await scheduleReminder({ reminderId, scheduledAt, baseUrl });
+        await scheduleReminder({ reminderId, telegramChatId: chatId, scheduledAt, baseUrl });
     }
 
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -197,7 +196,28 @@ function buildBot() {
 
         const elapsed = Date.now() - startTime;
 
-        const reply = result.type === 'text' ? result.text : 'Reminder set!';
+        let reply: string;
+
+        if (result.type === 'scheduleReminder') {
+            const { message, scheduledAt } = result.args;
+            const scheduledDate = new Date(scheduledAt);
+
+            const reminderId = await createReminder({
+                message,
+                scheduledAt: scheduledDate,
+            });
+
+            if (reminderId) {
+                const baseUrl = process.env.VERCEL_URL
+                    ? `https://${process.env.VERCEL_URL}`
+                    : 'https://cool-aide.vercel.app';
+                await scheduleReminder({ reminderId, telegramChatId: chatId, scheduledAt: scheduledDate, baseUrl });
+            }
+
+            reply = 'Reminder set!';
+        } else {
+            reply = result.text;
+        }
 
         await setLastInteractionId(chatId, result.interactionId);
         await appendChatHistory(chatId, [
@@ -213,7 +233,7 @@ function buildBot() {
             if (result.type === 'scheduleReminder') {
                 callLines.push(['fn_calls', 'scheduleReminder']);
             }
-            await ctx.reply(reply + buildDebugBlockquote(callLines));
+            await ctx.reply(reply/* + buildDebugBlockquote(callLines)*/);
         } else {
             await ctx.reply(reply);
         }

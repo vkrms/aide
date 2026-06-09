@@ -23,9 +23,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { reminderId } = body as { reminderId: string };
+    const { reminderId, telegramChatId } = body as { reminderId: string; telegramChatId: string };
     if (!reminderId) {
         return NextResponse.json({ error: 'Missing reminderId' }, { status: 400 });
+    }
+    if (!telegramChatId) {
+        return NextResponse.json({ error: 'Missing telegramChatId' }, { status: 400 });
     }
 
     const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        await sendTelegramMessage({ token: telegramToken, chatId: reminder.telegramChatId, text: reminder.message });
+        await sendTelegramMessage({ token: telegramToken, chatId: telegramChatId, text: reminder.message });
         await markReminderSent(reminderId);
         return NextResponse.json({ ok: true });
     } catch (error) {

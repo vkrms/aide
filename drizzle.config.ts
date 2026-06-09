@@ -1,9 +1,10 @@
+import 'dotenv/config';
 import { defineConfig } from 'drizzle-kit';
 
-const databaseUrl = process.env.DATABASE_URL ?? 'postgresql://placeholder:placeholder@127.0.0.1:5432/placeholder';
+const databaseUrl = process.env.DATABASE_URL;
 
-if (!process.env.DATABASE_URL) {
-    console.warn('DATABASE_URL is not set. drizzle-kit generate can still run, but migrate and push require a real Neon connection string.');
+if (!databaseUrl) {
+    throw new Error('DATABASE_URL is not set...');
 }
 
 export default defineConfig({
