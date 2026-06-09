@@ -8,6 +8,7 @@ import { ProjectDialog } from '@/components/project-dialog';
 import { ReminderDialog } from '@/components/reminder-dialog';
 import { MemoryDialog } from '@/components/memory-dialog';
 import { ConfirmDelete } from '@/components/confirm-dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
 interface Project {
@@ -199,95 +200,83 @@ export function Dashboard() {
         <main className="mx-auto max-w-5xl p-6">
             <h1 className="mb-6 text-2xl font-semibold">AIDE Dashboard</h1>
 
-            <div className="mb-6 flex items-center gap-1 border-b">
-                {(['projects', 'reminders', 'memories'] as const).map((t) => (
-                    <Button
-                        key={t}
-                        variant="ghost"
-                        size="sm"
-                        className={
-                            tab === t
-                                ? 'rounded-none border-b-2 border-primary font-medium text-foreground'
-                                : 'rounded-none border-b-2 border-transparent text-muted-foreground hover:text-foreground'
-                        }
-                        onClick={() => setTab(t)}
-                    >
-                        {t.charAt(0).toUpperCase() + t.slice(1)}
-                    </Button>
-                ))}
-            </div>
+            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+                <TabsList variant="line" className="mb-6 w-full justify-start border-b">
+                    <TabsTrigger value="projects">Projects</TabsTrigger>
+                    <TabsTrigger value="reminders">Reminders</TabsTrigger>
+                    <TabsTrigger value="memories">Memories</TabsTrigger>
+                </TabsList>
 
-            {loading && (
-                <div className="flex items-center justify-center py-12 text-muted-foreground">
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Loading…
-                </div>
-            )}
-
-            {error && !loading && (
-                <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                    {error}
-                    <Button variant="link" size="sm" className="ml-auto h-auto p-0 text-destructive underline" onClick={fetchAll}>
-                        Retry
-                    </Button>
-                </div>
-            )}
-
-            {!loading && !error && tab === 'projects' && (
-                <div className="space-y-4">
-                    <div className="flex justify-end">
-                        <ProjectDialog
-                            mode="create"
-                            onSaved={() => {
-                                fetchProjects();
-                                fetchReminders();
-                            }}
-                        />
+                {loading && (
+                    <div className="flex items-center justify-center py-12 text-muted-foreground">
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Loading…
                     </div>
-                    <DataTable
-                        columns={projectColumns}
-                        data={projects}
-                        searchPlaceholder="Search projects…"
-                        emptyLabel="No projects yet. Create one to get started."
-                    />
-                </div>
-            )}
+                )}
 
-            {!loading && !error && tab === 'reminders' && (
-                <div className="space-y-4">
-                    <div className="flex justify-end">
-                        <ReminderDialog
-                            mode="create"
-                            projects={projects.map((p) => ({
-                                id: p.id,
-                                name: p.name,
-                            }))}
-                            onSaved={fetchReminders}
-                        />
+                {error && !loading && (
+                    <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        {error}
+                        <Button variant="link" size="sm" className="ml-auto h-auto p-0 text-destructive underline" onClick={fetchAll}>
+                            Retry
+                        </Button>
                     </div>
-                    <DataTable
-                        columns={reminderColumns}
-                        data={reminders}
-                        searchPlaceholder="Search reminders…"
-                        emptyLabel="No reminders yet. Create one to stay on track."
-                    />
-                </div>
-            )}
+                )}
 
-            {!loading && !error && tab === 'memories' && (
-                <div className="space-y-4">
-                    <div className="flex justify-end">
-                        <MemoryDialog onSaved={fetchMemories} />
-                    </div>
-                    <DataTable
-                        columns={memoryColumns}
-                        data={memories}
-                        searchPlaceholder="Search memories…"
-                        emptyLabel="No memories stored yet. Ask the bot to remember something."
-                    />
-                </div>
-            )}
+                {!loading && !error && (
+                    <>
+                        <TabsContent value="projects" className="space-y-4">
+                            <div className="flex justify-end">
+                                <ProjectDialog
+                                    mode="create"
+                                    onSaved={() => {
+                                        fetchProjects();
+                                        fetchReminders();
+                                    }}
+                                />
+                            </div>
+                            <DataTable
+                                columns={projectColumns}
+                                data={projects}
+                                searchPlaceholder="Search projects…"
+                                emptyLabel="No projects yet. Create one to get started."
+                            />
+                        </TabsContent>
+
+                        <TabsContent value="reminders" className="space-y-4">
+                            <div className="flex justify-end">
+                                <ReminderDialog
+                                    mode="create"
+                                    projects={projects.map((p) => ({
+                                        id: p.id,
+                                        name: p.name,
+                                    }))}
+                                    onSaved={fetchReminders}
+                                />
+                            </div>
+                            <DataTable
+                                columns={reminderColumns}
+                                data={reminders}
+                                searchPlaceholder="Search reminders…"
+                                emptyLabel="No reminders yet. Create one to stay on track."
+                            />
+                        </TabsContent>
+
+                        <TabsContent value="memories" className="space-y-4">
+                            <div className="flex justify-end">
+                                <MemoryDialog onSaved={fetchMemories} />
+                            </div>
+                            <DataTable
+                                columns={memoryColumns}
+                                data={memories}
+                                searchPlaceholder="Search memories…"
+                                emptyLabel="No memories stored yet. Ask the bot to remember something."
+                            />
+                        </TabsContent>
+                    </>
+                )}
+            </Tabs>
         </main>
     );
 }
