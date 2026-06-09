@@ -19,17 +19,20 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[];
     data: TData[];
     searchPlaceholder?: string;
+    emptyLabel?: string;
 }
 
 export function DataTable<TData, TValue>({
     columns,
     data,
-    searchPlaceholder = 'Search...',
+    searchPlaceholder = 'Search…',
+    emptyLabel = 'Nothing here yet.',
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [globalFilter, setGlobalFilter] = useState('');
@@ -45,6 +48,14 @@ export function DataTable<TData, TValue>({
         state: { sorting, globalFilter },
     });
 
+    function SortIcon({ column }: { column: { getIsSorted: () => string | false; getCanSort: () => boolean } }) {
+        const sorted = column.getIsSorted();
+        if (sorted === 'asc') return <ArrowUp className="ml-1 inline h-3.5 w-3.5" />;
+        if (sorted === 'desc') return <ArrowDown className="ml-1 inline h-3.5 w-3.5" />;
+        if (column.getCanSort()) return <ArrowUpDown className="ml-1 inline h-3.5 w-3.5 text-muted-foreground/50" />;
+        return null;
+    }
+
     return (
         <div className="space-y-4">
             <Input
@@ -53,9 +64,9 @@ export function DataTable<TData, TValue>({
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 className="max-w-sm"
             />
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-auto max-h-[70vh]">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-background">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => (
@@ -63,21 +74,20 @@ export function DataTable<TData, TValue>({
                                         key={header.id}
                                         className={
                                             header.column.getCanSort()
-                                                ? 'cursor-pointer select-none'
-                                                : ''
+                                                ? 'cursor-pointer select-none whitespace-nowrap'
+                                                : 'whitespace-nowrap'
                                         }
                                         onClick={header.column.getToggleSortingHandler()}
                                     >
-                                        {header.isPlaceholder
-                                            ? null
-                                            : flexRender(
-                                                header.column.columnDef.header,
-                                                header.getContext()
-                                            )}
-                                        {{
-                                            asc: ' ↑',
-                                            desc: ' ↓',
-                                        }[header.column.getIsSorted() as string] ?? null}
+                                        <span className="inline-flex items-center">
+                                            {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                      header.column.columnDef.header,
+                                                      header.getContext()
+                                                  )}
+                                            <SortIcon column={header.column} />
+                                        </span>
                                     </TableHead>
                                 ))}
                             </TableRow>
@@ -101,9 +111,9 @@ export function DataTable<TData, TValue>({
                             <TableRow>
                                 <TableCell
                                     colSpan={columns.length}
-                                    className="h-24 text-center"
+                                    className="h-24 text-center text-muted-foreground"
                                 >
-                                    No results.
+                                    {globalFilter ? 'No results match your search.' : emptyLabel}
                                 </TableCell>
                             </TableRow>
                         )}

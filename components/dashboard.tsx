@@ -7,7 +7,8 @@ import { DataTable } from '@/components/data-table';
 import { ProjectDialog } from '@/components/project-dialog';
 import { ReminderDialog } from '@/components/reminder-dialog';
 import { MemoryDialog } from '@/components/memory-dialog';
-import { Trash2 } from 'lucide-react';
+import { ConfirmDelete } from '@/components/confirm-dialog';
+import { Loader2, AlertTriangle } from 'lucide-react';
 
 interface Project {
     id: string;
@@ -38,27 +39,37 @@ export function Dashboard() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [reminders, setReminders] = useState<Reminder[]>([]);
     const [memories, setMemories] = useState<Memory[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchProjects = useCallback(async () => {
         const res = await fetch('/api/projects');
-        if (res.ok) setProjects(await res.json());
+        if (res.ok) { setProjects(await res.json()); setError(null); }
+        else setError('Failed to load projects.');
     }, []);
 
     const fetchReminders = useCallback(async () => {
         const res = await fetch('/api/reminders');
-        if (res.ok) setReminders(await res.json());
+        if (res.ok) { setReminders(await res.json()); setError(null); }
+        else setError('Failed to load reminders.');
     }, []);
 
     const fetchMemories = useCallback(async () => {
         const res = await fetch('/api/memories');
-        if (res.ok) setMemories(await res.json());
+        if (res.ok) { setMemories(await res.json()); setError(null); }
+        else setError('Failed to load memories.');
     }, []);
 
-    useEffect(() => {
-        fetchProjects();
-        fetchReminders();
-        fetchMemories();
+    const fetchAll = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        await Promise.all([fetchProjects(), fetchReminders(), fetchMemories()]);
+        setLoading(false);
     }, [fetchProjects, fetchReminders, fetchMemories]);
+
+    useEffect(() => {
+        fetchAll();
+    }, [fetchAll]);
 
     async function deleteProject(id: string) {
         await fetch(`/api/projects/${id}`, { method: 'DELETE' });
@@ -99,14 +110,11 @@ export function Dashboard() {
                             fetchReminders();
                         }}
                     />
-                    <Button
-                        variant="ghost"
-                        size="icon"
+                    <ConfirmDelete
                         title="Delete project"
-                        onClick={() => deleteProject(row.original.id)}
-                    >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                        description={`Delete "${row.original.name}" and all its reminders? This cannot be undone.`}
+                        onConfirm={() => deleteProject(row.original.id)}
+                    />
                 </div>
             ),
         },
@@ -153,14 +161,11 @@ export function Dashboard() {
                         }))}
                         onSaved={fetchReminders}
                     />
-                    <Button
-                        variant="ghost"
-                        size="icon"
+                    <ConfirmDelete
                         title="Delete reminder"
-                        onClick={() => deleteReminder(row.original.id)}
-                    >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                        description="Delete this reminder? It will no longer be sent."
+                        onConfirm={() => deleteReminder(row.original.id)}
+                    />
                 </div>
             ),
         },
@@ -180,14 +185,11 @@ export function Dashboard() {
             header: '',
             cell: ({ row }) => (
                 <div className="flex items-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="icon"
+                    <ConfirmDelete
                         title="Delete memory"
-                        onClick={() => deleteMemoryById(row.original.id)}
-                    >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                        description="Delete this memory? It will be permanently removed."
+                        onConfirm={() => deleteMemoryById(row.original.id)}
+                    />
                 </div>
             ),
         },
@@ -195,32 +197,44 @@ export function Dashboard() {
 
     return (
         <main className="mx-auto max-w-5xl p-6">
-            <h1 className="mb-6 text-2xl font-semibold">
-                ADHD Accountability Bot — Admin
-            </h1>
+            <h1 className="mb-6 text-2xl font-semibold">AIDE Dashboard</h1>
 
-            <div className="mb-4 flex items-center gap-2 border-b pb-2">
-                <Button
-                    variant={tab === 'projects' ? 'default' : 'ghost'}
-                    onClick={() => setTab('projects')}
-                >
-                    Projects
-                </Button>
-                <Button
-                    variant={tab === 'reminders' ? 'default' : 'ghost'}
-                    onClick={() => setTab('reminders')}
-                >
-                    Reminders
-                </Button>
-                <Button
-                    variant={tab === 'memories' ? 'default' : 'ghost'}
-                    onClick={() => setTab('memories')}
-                >
-                    Memories
-                </Button>
+            <div className="mb-6 flex items-center gap-1 border-b">
+                {(['projects', 'reminders', 'memories'] as const).map((t) => (
+                    <Button
+                        key={t}
+                        variant="ghost"
+                        size="sm"
+                        className={
+                            tab === t
+                                ? 'rounded-none border-b-2 border-primary font-medium text-foreground'
+                                : 'rounded-none border-b-2 border-transparent text-muted-foreground hover:text-foreground'
+                        }
+                        onClick={() => setTab(t)}
+                    >
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </Button>
+                ))}
             </div>
 
-            {tab === 'projects' && (
+            {loading && (
+                <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Loading…
+                </div>
+            )}
+
+            {error && !loading && (
+                <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    {error}
+                    <Button variant="link" size="sm" className="ml-auto h-auto p-0 text-destructive underline" onClick={fetchAll}>
+                        Retry
+                    </Button>
+                </div>
+            )}
+
+            {!loading && !error && tab === 'projects' && (
                 <div className="space-y-4">
                     <div className="flex justify-end">
                         <ProjectDialog
@@ -235,11 +249,12 @@ export function Dashboard() {
                         columns={projectColumns}
                         data={projects}
                         searchPlaceholder="Search projects…"
+                        emptyLabel="No projects yet. Create one to get started."
                     />
                 </div>
             )}
 
-            {tab === 'reminders' && (
+            {!loading && !error && tab === 'reminders' && (
                 <div className="space-y-4">
                     <div className="flex justify-end">
                         <ReminderDialog
@@ -255,11 +270,12 @@ export function Dashboard() {
                         columns={reminderColumns}
                         data={reminders}
                         searchPlaceholder="Search reminders…"
+                        emptyLabel="No reminders yet. Create one to stay on track."
                     />
                 </div>
             )}
 
-            {tab === 'memories' && (
+            {!loading && !error && tab === 'memories' && (
                 <div className="space-y-4">
                     <div className="flex justify-end">
                         <MemoryDialog onSaved={fetchMemories} />
@@ -268,6 +284,7 @@ export function Dashboard() {
                         columns={memoryColumns}
                         data={memories}
                         searchPlaceholder="Search memories…"
+                        emptyLabel="No memories stored yet. Ask the bot to remember something."
                     />
                 </div>
             )}
