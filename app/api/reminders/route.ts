@@ -16,7 +16,10 @@ export async function GET() {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const reminder = await createReminder(body);
+        const reminder = await createReminder({
+            ...body,
+            scheduledAt: new Date(body.scheduledAt),
+        });
 
         if (telegramToken && body.projectId) {
             const project = await getProject(body.projectId);

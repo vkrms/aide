@@ -1,4 +1,4 @@
-import { json, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, json, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 export type ChatMessage = { role: 'user' | 'model'; parts: Array<{ text: string }> };
@@ -30,6 +30,20 @@ export const projects = pgTable('projects', {
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const tasks = pgTable('tasks', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    title: text('title').notNull(),
+    description: text('description'),
+    person: boolean('person').notNull().default(false),
+    interest: boolean('interest').notNull().default(false),
+    challenge: boolean('challenge').notNull().default(false),
+    novelty: boolean('novelty').notNull().default(false),
+    urgency: boolean('urgency').notNull().default(false),
+    consequence: text('consequence'),
+    nextStep: text('next_step'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const reminders = pgTable('reminders', {
     id: uuid('id').defaultRandom().primaryKey(),
     message: text('message').notNull(),
@@ -37,6 +51,7 @@ export const reminders = pgTable('reminders', {
     qstashMessageId: text('qstash_message_id'),
     status: text('status', { enum: ['pending', 'sent', 'failed'] }).notNull().default('pending'),
     projectId: uuid('project_id').references(() => projects.id),
+    taskId: uuid('task_id').references(() => tasks.id),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -45,15 +60,24 @@ export const remindersRelations = relations(reminders, ({ one }) => ({
         fields: [reminders.projectId],
         references: [projects.id],
     }),
+    task: one(tasks, {
+        fields: [reminders.taskId],
+        references: [tasks.id],
+    }),
 }));
 
 export const projectsRelations = relations(projects, ({ many }) => ({
     reminders: many(reminders),
 }));
 
+export const tasksRelations = relations(tasks, ({ many }) => ({
+    reminders: many(reminders),
+}));
+
 export type NewDelivery = typeof deliveries.$inferInsert;
 export type NewReminder = typeof reminders.$inferInsert;
 export type NewProject = typeof projects.$inferInsert;
+export type NewTask = typeof tasks.$inferInsert;
 
 export const memories = pgTable('memories', {
     id: uuid('id').defaultRandom().primaryKey(),

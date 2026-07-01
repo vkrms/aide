@@ -25,6 +25,7 @@ A lightweight serverless bot deployed on Vercel that pings your Telegram daily w
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_CHAT_ID`
    - `GEMINI_API_KEY`
+   - Optional: `ERROR_TELEGRAM_CHAT_ID` — separate chat for runtime error alerts (defaults to `TELEGRAM_CHAT_ID`)
    - Optional for an initial Telegram smoke test: `INITIAL_TELEGRAM_MESSAGE=Sup, chief, I'm here to help you.`
 4. Deploy! Vercel will automatically detect the `vercel.json` file and register the scheduled Cron Job.
 

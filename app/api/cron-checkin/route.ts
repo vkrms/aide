@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { recordDelivery } from '@/db/deliveries';
+import { reportErrorTelegram } from '@/lib/error-reporting';
 import { generateCheckinMessage } from '@/lib/gemini';
 import { sendTelegramMessage } from '@/lib/telegram';
 
@@ -58,8 +59,18 @@ export async function GET(request: NextRequest) {
         });
     } catch (error) {
         const errorMessage = getErrorMessage(error);
+        const isBillingIssue = errorMessage.includes('dunning') || errorMessage.includes('PERMISSION_DENIED');
 
         console.error('Operational Error encountered:', error);
+        reportErrorTelegram('Cron check-in failed', error);
+
+        if (isBillingIssue && telegramToken && telegramChatId) {
+            await sendTelegramMessage({
+                token: telegramToken,
+                chatId: telegramChatId,
+                text: 'My brain is taking a quick break — there is a billing hiccup with the AI provider. Check-ins will resume once it is resolved.',
+            }).catch(() => {});
+        }
 
         await recordDelivery({
             message: botMessage || 'Unavailable message',

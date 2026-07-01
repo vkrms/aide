@@ -62,7 +62,7 @@ export function DataTable<TData, TValue>({
                 placeholder={searchPlaceholder}
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
-                className="max-w-sm"
+                className="max-w-[480px] mt-4"
             />
             <div className="rounded-md border overflow-auto max-h-[70vh]">
                 <Table>
@@ -83,9 +83,9 @@ export function DataTable<TData, TValue>({
                                             {header.isPlaceholder
                                                 ? null
                                                 : flexRender(
-                                                      header.column.columnDef.header,
-                                                      header.getContext()
-                                                  )}
+                                                    header.column.columnDef.header,
+                                                    header.getContext()
+                                                )}
                                             <SortIcon column={header.column} />
                                         </span>
                                     </TableHead>

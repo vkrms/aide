@@ -1,5 +1,5 @@
 import { getDb } from '@/db/client';
-import { projects, reminders, memories, NewProject, NewReminder, NewMemory } from '@/db/schema';
+import { projects, reminders, memories, tasks, NewProject, NewReminder, NewMemory, NewTask } from '@/db/schema';
 import { eq, and, ilike } from 'drizzle-orm';
 
 // ─── Projects ──────────────────────────────────────────────────────────────
@@ -54,11 +54,14 @@ export async function getReminders() {
             status: reminders.status,
             projectId: reminders.projectId,
             projectName: projects.name,
+            taskId: reminders.taskId,
+            taskName: tasks.title,
             qstashMessageId: reminders.qstashMessageId,
             createdAt: reminders.createdAt,
         })
         .from(reminders)
         .leftJoin(projects, eq(reminders.projectId, projects.id))
+        .leftJoin(tasks, eq(reminders.taskId, tasks.id))
         .orderBy(reminders.scheduledAt);
 }
 
@@ -129,4 +132,43 @@ export async function deleteMemory(id: string) {
     const db = getDb();
     if (!db) throw new Error('Database not configured');
     await db.delete(memories).where(eq(memories.id, id));
+}
+
+// ─── Tasks ─────────────────────────────────────────────────────────────────
+
+export async function getTasks() {
+    const db = getDb();
+    if (!db) throw new Error('Database not configured');
+    return db.select().from(tasks).orderBy(tasks.createdAt);
+}
+
+export async function getTask(id: string) {
+    const db = getDb();
+    if (!db) throw new Error('Database not configured');
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task ?? null;
+}
+
+export async function createTask(data: NewTask) {
+    const db = getDb();
+    if (!db) throw new Error('Database not configured');
+    const [task] = await db.insert(tasks).values(data).returning();
+    return task;
+}
+
+export async function updateTask(id: string, data: Partial<NewTask>) {
+    const db = getDb();
+    if (!db) throw new Error('Database not configured');
+    const [task] = await db
+        .update(tasks)
+        .set(data)
+        .where(eq(tasks.id, id))
+        .returning();
+    return task ?? null;
+}
+
+export async function deleteTask(id: string) {
+    const db = getDb();
+    if (!db) throw new Error('Database not configured');
+    await db.delete(tasks).where(eq(tasks.id, id));
 }

@@ -1,4 +1,5 @@
 import { GoogleGenAI, type Interactions } from '@google/genai';
+import { loadSkills } from './skills';
 
 const MODEL = 'gemini-3.1-flash-lite-preview';
 
@@ -24,7 +25,9 @@ function buildSystemInstruction() {
         'Never default an explicit weekday request to today unless today is that weekday and the user clearly asked for today.' +
         'You have a persistent memory. When the user tells you a preference, fact, or anything worth remembering, ' +
         'call storeMemory. When you need context about the user, call retrieveMemories. ' +
-        'When the user asks to forget something, call deleteMemory with the memory ID from a prior retrieve.'
+        'When the user asks to forget something, call deleteMemory with the memory ID from a prior retrieve.' +
+        'When the user wants to add or capture a task or to-do, call createTask, inferring the PICNU priority flags from the conversation.' +
+        loadSkills()
     );
 }
 
@@ -89,6 +92,57 @@ const TOOLS: Interactions.Tool[] = [
     },
     {
         type: 'function',
+        name: 'createTask',
+        description:
+            'Create a new task for the user. Call this when the user asks to add, create, or capture a task or to-do. ' +
+            'Infer the PICNU priority flags (person, interest, challenge, novelty, urgency) from the conversation using the ' +
+            'ADHD prioritization framework: set each boolean true only when it clearly applies. Set urgency true when there ' +
+            'is a deadline or negative consequence for not doing it soon. Leave a flag false/unset when unsure.',
+        parameters: {
+            type: 'object',
+            properties: {
+                title: {
+                    type: 'string',
+                    description: 'Short title for the task.',
+                },
+                description: {
+                    type: 'string',
+                    description: 'Optional longer description or details about the task.',
+                },
+                person: {
+                    type: 'boolean',
+                    description: 'True if the task involves or matters to another person (social hook).',
+                },
+                interest: {
+                    type: 'boolean',
+                    description: 'True if the task is genuinely interesting or motivating to the user.',
+                },
+                challenge: {
+                    type: 'boolean',
+                    description: 'True if the task is a meaningful challenge or puzzle.',
+                },
+                novelty: {
+                    type: 'boolean',
+                    description: 'True if the task is novel, fresh, or new.',
+                },
+                urgency: {
+                    type: 'boolean',
+                    description: 'True if the task is urgent or has a near-term deadline or consequence.',
+                },
+                consequence: {
+                    type: 'string',
+                    description: 'Optional: what happens (the negative consequence) if this is not done.',
+                },
+                nextStep: {
+                    type: 'string',
+                    description: 'Optional: the smallest concrete next step to move the task forward.',
+                },
+            },
+            required: ['title'],
+        },
+    },
+    {
+        type: 'function',
         name: 'deleteMemory',
         description:
             'Delete a specific memory. Call this when the user asks to forget or remove something.',
@@ -109,6 +163,17 @@ export type ScheduleReminderArgs = { message: string; scheduledAt: string };
 export type StoreMemoryArgs = { content: string };
 export type RetrieveMemoriesArgs = { query?: string };
 export type DeleteMemoryArgs = { memoryId: string };
+export type CreateTaskArgs = {
+    title: string;
+    description?: string;
+    person?: boolean;
+    interest?: boolean;
+    challenge?: boolean;
+    novelty?: boolean;
+    urgency?: boolean;
+    consequence?: string;
+    nextStep?: string;
+};
 
 function createClient(apiKey: string) {
     return new GoogleGenAI({ apiKey });
@@ -133,7 +198,8 @@ export type ReplyResult =
     | { type: 'scheduleReminder'; args: ScheduleReminderArgs; interactionId: string }
     | { type: 'storeMemory'; args: StoreMemoryArgs; interactionId: string }
     | { type: 'retrieveMemories'; args: RetrieveMemoriesArgs; interactionId: string }
-    | { type: 'deleteMemory'; args: DeleteMemoryArgs; interactionId: string };
+    | { type: 'deleteMemory'; args: DeleteMemoryArgs; interactionId: string }
+    | { type: 'createTask'; args: CreateTaskArgs; interactionId: string };
 
 export async function replyToMessage(
     apiKey: string,
@@ -174,6 +240,14 @@ export async function replyToMessage(
         return {
             type: 'retrieveMemories',
             args: functionCallStep.arguments as RetrieveMemoriesArgs,
+            interactionId: interaction.id,
+        };
+    }
+
+    if (functionCallStep?.name === 'createTask') {
+        return {
+            type: 'createTask',
+            args: functionCallStep.arguments as CreateTaskArgs,
             interactionId: interaction.id,
         };
     }

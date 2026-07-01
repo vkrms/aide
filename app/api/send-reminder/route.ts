@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Receiver } from '@upstash/qstash';
 
 import { getReminderById, markReminderFailed, markReminderSent } from '@/db/reminders';
+import { reportErrorTelegram } from '@/lib/error-reporting';
 import { sendTelegramMessage } from '@/lib/telegram';
 
 export async function POST(request: NextRequest) {
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true });
     } catch (error) {
         console.error('Failed to send reminder:', error);
+        reportErrorTelegram('Failed to send reminder', error);
         await markReminderFailed(reminderId);
         return NextResponse.json({ error: 'Failed to send reminder' }, { status: 500 });
     }

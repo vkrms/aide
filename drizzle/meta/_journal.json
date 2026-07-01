@@ -36,6 +36,13 @@
       "when": 1781002677759,
       "tag": "0004_busy_shocker",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781192171209,
+      "tag": "0005_hesitant_tinkerer",
+      "breakpoints": true
     }
   ]
 }

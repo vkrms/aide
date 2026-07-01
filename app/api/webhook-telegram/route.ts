@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { appendChatHistory, getLastInteractionId, setLastInteractionId } from '@/db/chat-sessions';
 import { createReminder } from '@/db/reminders';
-import { createMemory, getMemoriesByChatId, deleteMemory } from '@/lib/data';
-import { replyToMessage, continueWithFunctionResponse } from '@/lib/gemini';
+import { createMemory, getMemoriesByChatId, deleteMemory, createTask } from '@/lib/data';
+import { reportErrorTelegram } from '@/lib/error-reporting';
+import { replyToMessage, continueWithFunctionResponse, type ReplyResult } from '@/lib/gemini';
 import { scheduleReminder } from '@/lib/qstash';
 import { createBot } from '@/lib/telegram';
 
@@ -196,7 +197,23 @@ function buildBot() {
         const startTime = Date.now();
 
         const previousInteractionId = await getLastInteractionId(chatId);
-        const result = await replyToMessage(geminiApiKey, userMessage, previousInteractionId);
+
+        let result: ReplyResult;
+        try {
+            result = await replyToMessage(geminiApiKey, userMessage, previousInteractionId);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            console.error('Gemini API call failed:', message);
+            reportErrorTelegram('Gemini API call failed', error as Error);
+
+            const isBillingIssue = message.includes('dunning') || message.includes('PERMISSION_DENIED');
+            const fallback = isBillingIssue
+                ? 'My brain is taking a quick break — there is a billing hiccup with the AI provider. I will be back soon!'
+                : 'Something went wrong on my end. Try again in a moment?';
+
+            await ctx.reply(fallback);
+            return;
+        }
 
         const elapsed = Date.now() - startTime;
 
@@ -223,6 +240,9 @@ function buildBot() {
         } else if (result.type === 'storeMemory') {
             await createMemory(chatId, result.args.content);
             reply = 'Got it, I\'ll remember that!';
+        } else if (result.type === 'createTask') {
+            await createTask(result.args);
+            reply = `Task created: "${result.args.title}"`;
         } else if (result.type === 'deleteMemory') {
             await deleteMemory(result.args.memoryId);
             reply = 'Forgotten.';
@@ -303,6 +323,7 @@ export async function POST(request: NextRequest) {
         await bot.handleUpdate(await request.json());
     } catch (error) {
         console.error('Failed to handle Telegram update:', error);
+        reportErrorTelegram('Webhook handler error', error);
     }
 
     return NextResponse.json({ ok: true });

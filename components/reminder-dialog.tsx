@@ -25,18 +25,25 @@ interface Project {
     name: string;
 }
 
+interface Task {
+    id: string;
+    title: string;
+}
+
 interface Reminder {
     id: string;
     message: string;
     scheduledAt: string;
     status: string;
     projectId: string | null;
+    taskId?: string | null;
 }
 
 interface ReminderDialogProps {
     mode: 'create' | 'edit';
     reminder?: Reminder;
     projects: Project[];
+    tasks: Task[];
     onSaved: () => void;
 }
 
@@ -44,6 +51,7 @@ export function ReminderDialog({
     mode,
     reminder,
     projects,
+    tasks,
     onSaved,
 }: ReminderDialogProps) {
     const [open, setOpen] = useState(false);
@@ -51,6 +59,7 @@ export function ReminderDialog({
     const [scheduledAt, setScheduledAt] = useState('');
     const [status, setStatus] = useState('pending');
     const [projectId, setProjectId] = useState<string | null>(null);
+    const [taskId, setTaskId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
@@ -59,11 +68,13 @@ export function ReminderDialog({
             setScheduledAt(reminder.scheduledAt.slice(0, 16));
             setStatus(reminder.status);
             setProjectId(reminder.projectId);
+            setTaskId(reminder.taskId ?? null);
         } else {
             setMessage('');
             setScheduledAt('');
             setStatus('pending');
             setProjectId(null);
+            setTaskId(null);
         }
     }, [reminder, open]);
 
@@ -85,6 +96,7 @@ export function ReminderDialog({
                 scheduledAt: new Date(scheduledAt).toISOString(),
                 status,
                 projectId: projectId || null,
+                taskId: taskId || null,
             }),
         });
 
@@ -166,6 +178,27 @@ export function ReminderDialog({
                                 {projects.map((p) => (
                                     <SelectItem key={p.id} value={p.id}>
                                         {p.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="task">Task (optional)</Label>
+                        <Select
+                            value={taskId ?? ''}
+                            onValueChange={(v) =>
+                                setTaskId(v || null)
+                            }
+                        >
+                            <SelectTrigger id="task">
+                                <SelectValue placeholder="No task" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">No task</SelectItem>
+                                {tasks.map((t) => (
+                                    <SelectItem key={t.id} value={t.id}>
+                                        {t.title}
                                     </SelectItem>
                                 ))}
                             </SelectContent>

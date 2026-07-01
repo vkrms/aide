@@ -7,8 +7,8 @@ import { DataTable } from '@/components/data-table';
 import { ProjectDialog } from '@/components/project-dialog';
 import { ReminderDialog } from '@/components/reminder-dialog';
 import { MemoryDialog } from '@/components/memory-dialog';
+import { TaskDialog } from '@/components/task-dialog';
 import { ConfirmDelete } from '@/components/confirm-dialog';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
 interface Project {
@@ -26,6 +26,8 @@ interface Reminder {
     status: string;
     projectId: string | null;
     projectName: string | null;
+    taskId: string | null;
+    taskName: string | null;
 }
 
 interface Memory {
@@ -35,9 +37,24 @@ interface Memory {
     createdAt: string;
 }
 
+interface Task {
+    id: string;
+    title: string;
+    description: string | null;
+    person: boolean;
+    interest: boolean;
+    challenge: boolean;
+    novelty: boolean;
+    urgency: boolean;
+    consequence: string | null;
+    nextStep: string | null;
+    createdAt: string;
+}
+
 export function Dashboard() {
-    const [tab, setTab] = useState<'projects' | 'reminders' | 'memories'>('projects');
+    const [tab, setTab] = useState<'projects' | 'tasks' | 'reminders' | 'memories'>('projects');
     const [projects, setProjects] = useState<Project[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
     const [reminders, setReminders] = useState<Reminder[]>([]);
     const [memories, setMemories] = useState<Memory[]>([]);
     const [loading, setLoading] = useState(true);
@@ -61,12 +78,18 @@ export function Dashboard() {
         else setError('Failed to load memories.');
     }, []);
 
+    const fetchTasks = useCallback(async () => {
+        const res = await fetch('/api/tasks');
+        if (res.ok) { setTasks(await res.json()); setError(null); }
+        else setError('Failed to load tasks.');
+    }, []);
+
     const fetchAll = useCallback(async () => {
         setLoading(true);
         setError(null);
-        await Promise.all([fetchProjects(), fetchReminders(), fetchMemories()]);
+        await Promise.all([fetchProjects(), fetchTasks(), fetchReminders(), fetchMemories()]);
         setLoading(false);
-    }, [fetchProjects, fetchReminders, fetchMemories]);
+    }, [fetchProjects, fetchTasks, fetchReminders, fetchMemories]);
 
     useEffect(() => {
         fetchAll();
@@ -86,6 +109,12 @@ export function Dashboard() {
     async function deleteMemoryById(id: string) {
         await fetch(`/api/memories/${id}`, { method: 'DELETE' });
         fetchMemories();
+    }
+
+    async function deleteTask(id: string) {
+        await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+        fetchTasks();
+        fetchReminders();
     }
 
     const projectColumns: ColumnDef<Project>[] = [
@@ -121,6 +150,54 @@ export function Dashboard() {
         },
     ];
 
+    const taskColumns: ColumnDef<Task>[] = [
+        { accessorKey: 'title', header: 'Title' },
+        { accessorKey: 'description', header: 'Description' },
+        {
+            id: 'picnu',
+            header: 'PICNU',
+            cell: ({ row }) => {
+                const t = row.original;
+                const flags: Array<[boolean, string]> = [
+                    [t.person, 'P'],
+                    [t.interest, 'I'],
+                    [t.challenge, 'C'],
+                    [t.novelty, 'N'],
+                    [t.urgency, 'U'],
+                ];
+                const active = flags.filter(([on]) => on).map(([, letter]) => letter).join(' ');
+                return <span className="font-mono text-xs">{active || '—'}</span>;
+            },
+        },
+        {
+            accessorKey: 'createdAt',
+            header: 'Created',
+            cell: ({ getValue }) =>
+                new Date(getValue<string>()).toLocaleDateString(),
+        },
+        {
+            id: 'actions',
+            header: '',
+            cell: ({ row }) => (
+                <div className="flex items-center gap-1">
+                    <TaskDialog
+                        mode="edit"
+                        task={row.original}
+                        onSaved={() => {
+                            fetchTasks();
+                            fetchReminders();
+                        }}
+                    />
+                    <ConfirmDelete
+                        title="Delete task"
+                        description={`Delete "${row.original.title}" and unlink its reminders? This cannot be undone.`}
+                        onConfirm={() => deleteTask(row.original.id)}
+                    />
+                </div>
+            ),
+        },
+    ];
+
     const reminderColumns: ColumnDef<Reminder>[] = [
         { accessorKey: 'message', header: 'Message' },
         {
@@ -149,6 +226,11 @@ export function Dashboard() {
             cell: ({ getValue }) => getValue() ?? '—',
         },
         {
+            accessorKey: 'taskName',
+            header: 'Task',
+            cell: ({ getValue }) => getValue() ?? '—',
+        },
+        {
             id: 'actions',
             header: '',
             cell: ({ row }) => (
@@ -159,6 +241,10 @@ export function Dashboard() {
                         projects={projects.map((p) => ({
                             id: p.id,
                             name: p.name,
+                        }))}
+                        tasks={tasks.map((t) => ({
+                            id: t.id,
+                            title: t.title,
                         }))}
                         onSaved={fetchReminders}
                     />
@@ -200,83 +286,119 @@ export function Dashboard() {
         <main className="mx-auto max-w-5xl p-6">
             <h1 className="mb-6 text-2xl font-semibold">AIDE Dashboard</h1>
 
-            <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-                <TabsList variant="line" className="mb-6 w-full justify-start border-b">
-                    <TabsTrigger value="projects">Projects</TabsTrigger>
-                    <TabsTrigger value="reminders">Reminders</TabsTrigger>
-                    <TabsTrigger value="memories">Memories</TabsTrigger>
-                </TabsList>
+            <div className="mb-6 flex items-center gap-1 border-b">
+                {(['projects', 'tasks', 'reminders', 'memories'] as const).map((t) => (
+                    <Button
+                        key={t}
+                        variant="ghost"
+                        size="sm"
+                        className={
+                            tab === t
+                                ? 'rounded-none border-b-2 border-primary font-medium text-foreground'
+                                : 'rounded-none border-b-2 border-transparent text-muted-foreground hover:text-foreground'
+                        }
+                        onClick={() => setTab(t)}
+                    >
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </Button>
+                ))}
+            </div>
 
-                {loading && (
-                    <div className="flex items-center justify-center py-12 text-muted-foreground">
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Loading…
+            {loading && (
+                <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Loading…
+                </div>
+            )}
+
+            {error && !loading && (
+                <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    {error}
+                    <Button variant="link" size="sm" className="ml-auto h-auto p-0 text-destructive underline" onClick={fetchAll}>
+                        Retry
+                    </Button>
+                </div>
+            )}
+
+            {!loading && !error && tab === 'projects' && (
+                <div className="space-y-4">
+                    <div className="flex justify-end">
+                        <ProjectDialog
+                            mode="create"
+                            onSaved={() => {
+                                fetchProjects();
+                                fetchReminders();
+                            }}
+                        />
                     </div>
-                )}
+                    <DataTable
+                        columns={projectColumns}
+                        data={projects}
+                        searchPlaceholder="Search projects…"
+                        emptyLabel="No projects yet. Create one to get started."
+                    />
+                </div>
+            )}
 
-                {error && !loading && (
-                    <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                        <AlertTriangle className="h-4 w-4 shrink-0" />
-                        {error}
-                        <Button variant="link" size="sm" className="ml-auto h-auto p-0 text-destructive underline" onClick={fetchAll}>
-                            Retry
-                        </Button>
+            {!loading && !error && tab === 'tasks' && (
+                <div className="space-y-4">
+                    <div className="flex justify-end">
+                        <TaskDialog
+                            mode="create"
+                            onSaved={() => {
+                                fetchTasks();
+                                fetchReminders();
+                            }}
+                        />
                     </div>
-                )}
+                    <DataTable
+                        columns={taskColumns}
+                        data={tasks}
+                        searchPlaceholder="Search tasks…"
+                        emptyLabel="No tasks yet. Create one or ask the bot to add a task."
+                    />
+                </div>
+            )}
 
-                {!loading && !error && (
-                    <>
-                        <TabsContent value="projects" className="space-y-4">
-                            <div className="flex justify-end">
-                                <ProjectDialog
-                                    mode="create"
-                                    onSaved={() => {
-                                        fetchProjects();
-                                        fetchReminders();
-                                    }}
-                                />
-                            </div>
-                            <DataTable
-                                columns={projectColumns}
-                                data={projects}
-                                searchPlaceholder="Search projects…"
-                                emptyLabel="No projects yet. Create one to get started."
-                            />
-                        </TabsContent>
+            {!loading && !error && tab === 'reminders' && (
+                <div className="space-y-4">
+                    <div className="flex justify-end">
+                        <ReminderDialog
+                            mode="create"
+                            projects={projects.map((p) => ({
+                                id: p.id,
+                                name: p.name,
+                            }))}
+                            tasks={tasks.map((t) => ({
+                                id: t.id,
+                                title: t.title,
+                            }))}
+                            onSaved={fetchReminders}
+                        />
+                    </div>
+                    <DataTable
+                        columns={reminderColumns}
+                        data={reminders}
+                        searchPlaceholder="Search reminders…"
+                        emptyLabel="No reminders yet. Create one to stay on track."
+                    />
+                </div>
+            )}
 
-                        <TabsContent value="reminders" className="space-y-4">
-                            <div className="flex justify-end">
-                                <ReminderDialog
-                                    mode="create"
-                                    projects={projects.map((p) => ({
-                                        id: p.id,
-                                        name: p.name,
-                                    }))}
-                                    onSaved={fetchReminders}
-                                />
-                            </div>
-                            <DataTable
-                                columns={reminderColumns}
-                                data={reminders}
-                                searchPlaceholder="Search reminders…"
-                                emptyLabel="No reminders yet. Create one to stay on track."
-                            />
-                        </TabsContent>
-
-                        <TabsContent value="memories" className="space-y-4">
-                            <div className="flex justify-end">
-                                <MemoryDialog onSaved={fetchMemories} />
-                            </div>
-                            <DataTable
-                                columns={memoryColumns}
-                                data={memories}
-                                searchPlaceholder="Search memories…"
-                                emptyLabel="No memories stored yet. Ask the bot to remember something."
-                            />
-                        </TabsContent>
-                    </>
-                )}
-            </Tabs>
+            {!loading && !error && tab === 'memories' && (
+                <div className="space-y-4">
+                    <div className="flex justify-end">
+                        <MemoryDialog onSaved={fetchMemories} />
+                    </div>
+                    <DataTable
+                        columns={memoryColumns}
+                        data={memories}
+                        searchPlaceholder="Search memories…"
+                        emptyLabel="No memories stored yet. Ask the bot to remember something."
+                    />
+                </div>
+            )}
         </main>
     );
 }
