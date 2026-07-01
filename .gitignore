@@ -8,3 +8,4 @@ webhook.sh
 config.bat
 .next
 tsconfig.tsbuildinfo
+.claude/
